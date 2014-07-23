@@ -1,0 +1,32 @@
+.timer {
+    margin-top: 20px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 400px;
+    border: 1px solid #eee;
+    padding: 20px;
+    text-align: center;
+}
+
+.timer .config * {
+    font-size: 32px;
+}
+
+.timer .config .interval {
+    display: none;
+}
+
+.timer .config .interval:checked ~ label {
+    background: #eee;
+}
+
+.timer button {
+    font-size: 32px;
+    padding: 5px;
+    margin: 10px;
+}
+
+.timer .display {
+    font-size: 84px;
+    font-weight: bold;
+}
