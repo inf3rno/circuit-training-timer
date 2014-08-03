@@ -1,31 +1,3 @@
-var EventHub = function () {
-    this.init.apply(this, arguments);
-};
-EventHub.prototype = {
-    constructor: EventHub,
-    events: null,
-    init: function () {
-        this.events = {};
-        var args = Array.prototype.slice.call(arguments, 0);
-        args.forEach(function (type) {
-            this.register(type);
-        }.bind(this));
-    },
-    register: function (type) {
-        this.events[type] = [];
-    },
-    trigger: function (type) {
-        var args = Array.prototype.slice.call(arguments, 1);
-        this.events[type].forEach(function (listener) {
-            listener.apply(this, args);
-        }.bind(this));
-    },
-    on: function (type, listener) {
-        this.events[type].push(listener);
-    }
-};
-
-
 var Timer = function (config) {
     this.init(config);
 };
@@ -38,17 +10,22 @@ Timer.prototype = {
     tickFrequency: 100,
     events: null,
     init: function (config) {
-        if (!config.length)
-            throw new Error();
-        this.length = config.length;
+        if (config.length)
+            this.setLength(config.length);
 
         if (config.tickFrequency)
             this.tickFrequency = config.tickFrequency;
 
-        this.events = new EventHub("start", "tick", "clear", "end");
+        this.events = new EventBus("start", "tick", "clear", "end");
         if (config.events)
-            for (var type in config.events)
-                this.events.on(type, config.events[type].bind(this));
+            this.subscribe(config.events);
+    },
+    setLength: function (length){
+        this.length = length;
+    },
+    subscribe: function (events) {
+        for (var type in events)
+            this.events.on(type, events[type].bind(this));
     },
     start: function () {
         if (this.interval)
