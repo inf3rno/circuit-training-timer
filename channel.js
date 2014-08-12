@@ -7,9 +7,6 @@ Channel.prototype = {
         this.id = uniqueId();
         this.subscriptions = {};
     },
-    has: function (subscription) {
-        return (subscription.id in this.subscriptions);
-    },
     subscribe: function () {
         var subscription;
         if (arguments[0] instanceof Subscription)
