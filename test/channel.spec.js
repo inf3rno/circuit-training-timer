@@ -1,11 +1,146 @@
-var Channel = require("../channel");
+var Channel = require("../channel"),
+    Subscription = Channel.Subscription,
+    Sequence = Channel.Sequence,
+    uniqueId = Channel.uniqueId;
 
 describe("channel.js", function () {
+
+    describe("Channel", function () {
+
+        it("delivers messages to the subscribers", function () {
+
+            var channel = new Channel();
+            var subscriber = jasmine.createSpy();
+            channel.subscribe(subscriber);
+            channel.publish();
+            expect(subscriber).toHaveBeenCalledWith();
+            channel.publish(1, 2, 3);
+            expect(subscriber).toHaveBeenCalledWith(1, 2, 3);
+        });
+
+        it("maintains a set of subscriptions", function () {
+
+            var channel = new Channel();
+            var subscriber1 = jasmine.createSpy(1);
+            var subscriber2 = jasmine.createSpy(2);
+            var subscriber3 = jasmine.createSpy(3);
+            var subscription1 = channel.subscribe(subscriber1);
+            var subscription2 = channel.subscribe(subscriber2);
+            var subscription3 = channel.subscribe(subscriber3);
+            channel.publish(1, 2, 3);
+            expect(subscriber1).toHaveBeenCalledWith(1, 2, 3);
+            expect(subscriber2).toHaveBeenCalledWith(1, 2, 3);
+            expect(subscriber3).toHaveBeenCalledWith(1, 2, 3);
+            channel.unsubscribe(subscription2);
+            channel.publish("a", "b", "c");
+            expect(subscriber1).toHaveBeenCalledWith("a", "b", "c");
+            expect(subscriber2).not.toHaveBeenCalledWith("a", "b", "c");
+            expect(subscriber3).toHaveBeenCalledWith("a", "b", "c");
+            channel.unsubscribe(subscription1);
+            channel.publish(4, 5, 6);
+            expect(subscriber1).not.toHaveBeenCalledWith(4, 5, 6);
+            expect(subscriber2).not.toHaveBeenCalledWith(4, 5, 6);
+            expect(subscriber3).toHaveBeenCalledWith(4, 5, 6);
+            channel.subscribe(subscription2);
+            channel.publish("d", "e", "f");
+            expect(subscriber1).not.toHaveBeenCalledWith("d", "e", "f");
+            expect(subscriber2).toHaveBeenCalledWith("d", "e", "f");
+            expect(subscriber3).toHaveBeenCalledWith("d", "e", "f");
+        });
+
+        it("can share subscriptions", function () {
+
+            var subscriber = jasmine.createSpy();
+            var subscription = new Subscription({
+                subscriber: subscriber
+            });
+            var channel1 = new Channel();
+            channel1.subscribe(subscription);
+            var channel2 = new Channel();
+            channel2.subscribe(subscription);
+            channel1.publish(1, 2, 3);
+            channel2.publish(4, 5, 6);
+            channel1.unsubscribe(subscription);
+            channel1.publish("a", "b", "c");
+            channel2.publish(7, 8, 9);
+            expect(subscriber).toHaveBeenCalledWith(1, 2, 3);
+            expect(subscriber).toHaveBeenCalledWith(4, 5, 6);
+            expect(subscriber).toHaveBeenCalledWith(7, 8, 9);
+            expect(subscriber).not.toHaveBeenCalledWith("a", "b", "c");
+        });
+
+    });
+
+    describe("Subscription", function () {
+
+        it("generates a unique id", function () {
+            expect(new Subscription().id).not.toBe(new Subscription().id);
+        });
+
+        it("can notify the subscriber with message", function () {
+
+            var subscriber = jasmine.createSpy();
+            var subscription = new Subscription({
+                subscriber: subscriber
+            });
+            subscription.notify(1, 2, 3);
+            expect(subscriber).toHaveBeenCalledWith(1, 2, 3);
+
+        });
+
+        it("does not break without subscriber", function () {
+            var subscription = new Subscription();
+            expect(function () {
+                subscription.notify(1, 2, 3)
+            }).not.toThrow();
+        });
+
+        it("can replace the subscriber", function () {
+
+            var subscriber = jasmine.createSpy();
+            var subscriber2 = jasmine.createSpy();
+            var subscription = new Subscription({
+                subscriber: subscriber
+            });
+            subscription.notify(1, 2, 3);
+            subscription.update({
+                subscriber: subscriber2
+            });
+            subscription.notify(4, 5, 6);
+            expect(subscriber).toHaveBeenCalledWith(1, 2, 3);
+            expect(subscriber).not.toHaveBeenCalledWith(4, 5, 6);
+            expect(subscriber2).toHaveBeenCalledWith(4, 5, 6);
+            expect(subscriber2).not.toHaveBeenCalledWith(1, 2, 3);
+        });
+
+        it("can add context to the subscriber", function () {
+            var log = jasmine.createSpy();
+            var subscriber = function () {
+                log(this);
+            };
+            var a = {};
+            var b = {};
+            var subscription = new Subscription({
+                subscriber: subscriber,
+                context: a
+            });
+            subscription.notify();
+            expect(log).toHaveBeenCalledWith(a);
+            subscription.update({
+                subscriber: subscriber,
+                context: b
+            });
+            subscription.notify();
+            expect(log).toHaveBeenCalledWith(b);
+        });
+
+
+    });
 
     describe("Sequence", function () {
 
         it("generates the next state from the previous state", function () {
-            var continuouslyIncreasingSequence = new Channel.Sequence({
+            var continuouslyIncreasingSequence = new Sequence({
                 generator: function (previous) {
                     return ++previous;
                 },
@@ -18,7 +153,7 @@ describe("channel.js", function () {
         });
 
         it("returns a wrapper which calls next state", function () {
-            var sequence = new Channel.Sequence({
+            var sequence = new Sequence({
                 generator: function (i) {
                     return ++i;
                 },
@@ -32,7 +167,7 @@ describe("channel.js", function () {
         });
 
         it("accepts additional parameters", function () {
-            var sequence = new Channel.Sequence({
+            var sequence = new Sequence({
                 generator: function (i, j) {
                     return i + j;
                 },
@@ -45,7 +180,7 @@ describe("channel.js", function () {
         });
 
         it("stores additional parameters in the wrapper", function () {
-            var sequence = new Channel.Sequence({
+            var sequence = new Sequence({
                 generator: function (i, j, k) {
                     return i + j + k;
                 },
@@ -59,22 +194,21 @@ describe("channel.js", function () {
 
     });
 
-    describe("uniqueId", function (){
+    describe("uniqueId", function () {
 
-        it("returns unique id", function (){
-            expect(Channel.uniqueId()).not.toBe(Channel.uniqueId());
+        it("returns unique id", function () {
+            var store = {};
+            for (var i = 0; i < 1000; ++i) {
+                var id = uniqueId();
+                if (id in store)
+                    break;
+                store[id] = true;
+            }
+            expect(i).toBe(1000);
         });
 
     });
 
-    describe("Channel", function () {
-
-        it("does create a new channel", function () {
-            expect(Channel).toBeDefined();
-            expect(new Channel()).toBeDefined();
-        });
-
-    });
 
 });
 
