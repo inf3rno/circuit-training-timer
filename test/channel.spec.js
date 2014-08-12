@@ -1,9 +1,62 @@
 var Channel = require("../channel"),
+    Worker = Channel.Worker,
     Subscription = Channel.Subscription,
     Sequence = Channel.Sequence,
     uniqueId = Channel.uniqueId;
 
 describe("channel.js", function () {
+
+    describe("Worker", function () {
+
+        it("reflects request by default", function () {
+            var worker = new Worker();
+            var log = jasmine.createSpy();
+            worker.subscribe(log);
+            worker.publish(1, 2, 3);
+            expect(log).toHaveBeenCalledWith(1, 2, 3);
+        });
+
+        it("sends the return values through the output channel", function () {
+
+            var worker = new Worker(function (x, y) {
+                return [x, y, "z"];
+            });
+            var log = jasmine.createSpy();
+            worker.subscribe(log);
+            worker.publish("x", "y");
+            expect(log).toHaveBeenCalledWith("x", "y", "z");
+        });
+
+        it("can replace its logic", function () {
+            var worker = new Worker();
+            var log = jasmine.createSpy();
+            worker.subscribe(log);
+            worker.publish(1, 2, 3);
+            expect(log).toHaveBeenCalledWith(1, 2, 3);
+            worker.update(function () {
+                var reverseOrder = function (a, b) {
+                    return b - a;
+                };
+                return Array.apply(null, arguments).sort(reverseOrder);
+            });
+            worker.publish(1, 2, 3);
+            expect(log).toHaveBeenCalledWith(3, 2, 1);
+            worker.update(function () {
+                return [arguments.length];
+            });
+            worker.publish(1, 2, 3);
+            expect(log).toHaveBeenCalledWith(3);
+        });
+
+        it("throws error by not returning a response array", function (){
+
+            var worker = new Worker(function (){});
+            expect(function (){
+                worker.publish();
+            }).toThrow("Invalid processor logic.");
+        });
+
+    });
 
     describe("Channel", function () {
 

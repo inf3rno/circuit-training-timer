@@ -1,3 +1,68 @@
+var Worker = function () {
+    this.init.apply(this, arguments);
+};
+Worker.prototype = {
+    constructor: Worker,
+    init: function () {
+        this.id = uniqueId();
+        this.input = new Channel();
+        this.output = new Channel();
+        this.update.apply(this, arguments);
+        this.input.subscribe(function () {
+            var response = this.processor.process.apply(this.processor, arguments);
+            this.output.publish.apply(this.output, response);
+        }.bind(this));
+    },
+    publish: function () {
+        this.input.publish.apply(this.input, arguments);
+    },
+    subscribe: function () {
+        this.output.subscribe.apply(this.output, arguments);
+    },
+    update: function () {
+        this.processor = Processor.create.apply(null, arguments);
+    }
+};
+
+var Processor = function () {
+    this.init.apply(this, arguments);
+};
+Processor.prototype = {
+    constructor: Processor,
+    logic: function () {
+        return Array.apply(null, arguments);
+    },
+    init: function (config) {
+        this.id = uniqueId();
+        if (config)
+            this.update(config);
+    },
+    process: function () {
+        var results = this.logic.apply(this.context, arguments);
+        if (!(results instanceof Array))
+            throw new Error("Invalid processor logic.");
+        return results;
+    },
+    update: function (config) {
+        delete(this.logic);
+        this.logic = config.logic;
+        this.context = config.context;
+    }
+};
+Processor.create = function () {
+    var processor;
+    if (arguments[0] instanceof Processor)
+        processor = arguments[0];
+    else if (arguments[0] instanceof Function)
+        processor = new Processor({
+            logic: arguments[0],
+            context: arguments[1]
+        });
+    else
+        processor = new Processor(arguments[0]);
+    return processor;
+};
+
 var Channel = function () {
     this.init.apply(this, arguments);
 };
@@ -8,16 +73,7 @@ Channel.prototype = {
         this.subscriptions = {};
     },
     subscribe: function () {
-        var subscription;
-        if (arguments[0] instanceof Subscription)
-            subscription = arguments[0];
-        else if (arguments[0] instanceof Function)
-            subscription = new Subscription({
-                subscriber: arguments[0],
-                context: arguments[1]
-            });
-        else
-            subscription = new Subscription(arguments[0]);
+        var subscription = Subscription.create.apply(null, arguments);
         this.subscriptions[subscription.id] = subscription;
         return subscription;
     },
@@ -50,6 +106,19 @@ Subscription.prototype = {
         this.subscriber = config.subscriber;
         this.context = config.context;
     }
+};
+Subscription.create = function () {
+    var subscription;
+    if (arguments[0] instanceof Subscription)
+        subscription = arguments[0];
+    else if (arguments[0] instanceof Function)
+        subscription = new Subscription({
+            subscriber: arguments[0],
+            context: arguments[1]
+        });
+    else
+        subscription = new Subscription(arguments[0]);
+    return subscription;
 };
 
 var Sequence = function () {
@@ -94,6 +163,8 @@ var uniqueId = new Sequence({
     for (var name in helpers)
         Channel[name] = helpers[name];
 })({
+    Worker: Worker,
+    Channel: Channel,
     Subscription: Subscription,
     Sequence: Sequence,
     uniqueId: uniqueId
