@@ -6,97 +6,6 @@ var Channel = require("../channel"),
 
 describe("channel.js", function () {
 
-    describe("Worker", function () {
-
-        it("reflects request by default", function () {
-            var worker = new Worker();
-            var log = jasmine.createSpy();
-            worker.subscribe(log);
-            worker.publish(1, 2, 3);
-            expect(log).toHaveBeenCalledWith(1, 2, 3);
-        });
-
-        it("sends the return values through the output channel", function () {
-
-            var worker = new Worker(function (request, respond) {
-                request.push("z");
-                respond(request);
-            });
-            var log = jasmine.createSpy();
-            worker.subscribe(log);
-            worker.publish("x", "y");
-            expect(log).toHaveBeenCalledWith("x", "y", "z");
-        });
-
-        it("can replace its logic", function () {
-            var worker = new Worker();
-            var log = jasmine.createSpy();
-            worker.subscribe(log);
-            worker.publish(1, 2, 3);
-            expect(log).toHaveBeenCalledWith(1, 2, 3);
-            worker.update(function (request, respond) {
-                var reverseOrder = function (a, b) {
-                    return b - a;
-                };
-                respond(request.sort(reverseOrder));
-            });
-            worker.publish(1, 2, 3);
-            expect(log).toHaveBeenCalledWith(3, 2, 1);
-            worker.update(function (request, respond) {
-                respond([request.length]);
-            });
-            worker.publish(1, 2, 3);
-            expect(log).toHaveBeenCalledWith(3);
-        });
-
-        it("supports async processing", function () {
-            var worker = new Worker({
-                logic: function (request, respond) {
-                    setTimeout(function () {
-                        var reverseOrder = function (a, b) {
-                            return b - a;
-                        };
-                        respond(request.sort(reverseOrder));
-                    }, 1);
-                },
-                async: true
-            });
-            var log = jasmine.createSpy();
-            worker.subscribe(log);
-            runs(function () {
-                worker.publish(1, 2, 3);
-            });
-            waitsFor(function () {
-                return log.callCount > 0;
-            });
-            runs(function () {
-                expect(log).toHaveBeenCalledWith(3, 2, 1);
-            });
-        });
-
-        it("can be piped to other channels or workers", function () {
-            var worker1 = new Worker({
-                async: true,
-                logic: function (request, respond) {
-                    request.push(1);
-                    respond(request);
-                }
-            });
-            var worker2 = new Worker({
-                async: true,
-                logic: function (request, respond) {
-                    request.push(2);
-                    respond(request);
-                }
-            });
-            worker1.pipe(worker2);
-            var log = jasmine.createSpy();
-            worker2.subscribe(log);
-            worker1.publish(0);
-            expect(log).toHaveBeenCalledWith(0, 1, 2);
-        });
-    });
-
     describe("Channel", function () {
 
         it("delivers messages to the subscribers", function () {
@@ -173,6 +82,104 @@ describe("channel.js", function () {
             expect(log).toHaveBeenCalledWith(1, 2, 3);
         });
 
+    });
+
+    describe("Worker", function () {
+
+        it("reflects request by default", function () {
+            var worker = new Worker();
+            var log = jasmine.createSpy();
+            worker.subscribe(log);
+            worker.publish(1, 2, 3);
+            expect(log).toHaveBeenCalledWith(1, 2, 3);
+        });
+
+        it("sends the return values to the subscribers", function () {
+
+            var worker = new Worker(function (request, respond) {
+                request.push("z");
+                respond(request);
+            });
+            var log = jasmine.createSpy();
+            worker.subscribe(log);
+            worker.publish("x", "y");
+            expect(log).toHaveBeenCalledWith("x", "y", "z");
+        });
+
+        it("can replace its logic", function () {
+            var worker = new Worker();
+            var log = jasmine.createSpy();
+            worker.subscribe(log);
+            worker.publish(1, 2, 3);
+            expect(log).toHaveBeenCalledWith(1, 2, 3);
+            worker.update(function (request, respond) {
+                var reverseOrder = function (a, b) {
+                    return b - a;
+                };
+                respond(request.sort(reverseOrder));
+            });
+            worker.publish(1, 2, 3);
+            expect(log).toHaveBeenCalledWith(3, 2, 1);
+            worker.update(function (request, respond) {
+                respond([request.length]);
+            });
+            worker.publish(1, 2, 3);
+            expect(log).toHaveBeenCalledWith(3);
+        });
+
+        it("supports async processing", function () {
+            var worker = new Worker({
+                logic: function (request, respond) {
+                    setTimeout(function () {
+                        var reverseOrder = function (a, b) {
+                            return b - a;
+                        };
+                        respond(request.sort(reverseOrder));
+                    }, 1);
+                },
+                async: true
+            });
+            var log = jasmine.createSpy();
+            worker.subscribe(log);
+            runs(function () {
+                worker.publish(1, 2, 3);
+            });
+            waitsFor(function () {
+                return log.callCount > 0;
+            });
+            runs(function () {
+                expect(log).toHaveBeenCalledWith(3, 2, 1);
+            });
+        });
+
+        it("can be piped to other channels or workers", function () {
+            var worker1 = new Worker({
+                async: true,
+                logic: function (request, respond) {
+                    request.push(1);
+                    respond(request);
+                }
+            });
+            var worker2 = new Worker({
+                async: true,
+                logic: function (request, respond) {
+                    request.push(2);
+                    respond(request);
+                }
+            });
+            worker1.pipe(worker2);
+            var log1 = jasmine.createSpy();
+            var log2 = jasmine.createSpy();
+            worker1.subscribe(log1);
+            worker2.subscribe(log2);
+            worker1.publish(0);
+            expect(log1).toHaveBeenCalledWith(0, 1);
+            expect(log2).toHaveBeenCalledWith(0, 1, 2);
+            worker1.unpipe(worker2);
+            worker1.publish("x");
+            expect(log1).toHaveBeenCalledWith("x", 1);
+            expect(log2).not.toHaveBeenCalledWith("x", 1, 2);
+        });
     });
 
     describe("Subscription", function () {

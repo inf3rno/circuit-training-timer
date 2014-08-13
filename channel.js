@@ -8,6 +8,9 @@ var extend = function (Ancestor, properties) {
         for (var property in properties)
             Descendant.prototype[property] = properties[property];
     Descendant.prototype.constructor = Descendant;
+    Descendant.extend = function (properties) {
+        return extend(this, properties);
+    };
     return Descendant;
 };
 
@@ -51,7 +54,7 @@ var Channel = extend(Object, {
     }
 });
 
-var Worker = extend(Channel, {
+var Worker = Channel.extend({
     logic: function (request, respond) {
         respond(request);
     },
