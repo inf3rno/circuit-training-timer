@@ -18,8 +18,9 @@ describe("channel.js", function () {
 
         it("sends the return values through the output channel", function () {
 
-            var worker = new Worker(function (x, y) {
-                return [x, y, "z"];
+            var worker = new Worker(function (request, respond) {
+                request.push("z");
+                respond(request);
             });
             var log = jasmine.createSpy();
             worker.subscribe(log);
@@ -33,29 +34,67 @@ describe("channel.js", function () {
             worker.subscribe(log);
             worker.publish(1, 2, 3);
             expect(log).toHaveBeenCalledWith(1, 2, 3);
-            worker.update(function () {
+            worker.update(function (request, respond) {
                 var reverseOrder = function (a, b) {
                     return b - a;
                 };
-                return Array.apply(null, arguments).sort(reverseOrder);
+                respond(request.sort(reverseOrder));
             });
             worker.publish(1, 2, 3);
             expect(log).toHaveBeenCalledWith(3, 2, 1);
-            worker.update(function () {
-                return [arguments.length];
+            worker.update(function (request, respond) {
+                respond([request.length]);
             });
             worker.publish(1, 2, 3);
             expect(log).toHaveBeenCalledWith(3);
         });
 
-        it("throws error by not returning a response array", function (){
-
-            var worker = new Worker(function (){});
-            expect(function (){
-                worker.publish();
-            }).toThrow("Invalid processor logic.");
+        it("supports async processing", function () {
+            var worker = new Worker({
+                logic: function (request, respond) {
+                    setTimeout(function () {
+                        var reverseOrder = function (a, b) {
+                            return b - a;
+                        };
+                        respond(request.sort(reverseOrder));
+                    }, 1);
+                },
+                async: true
+            });
+            var log = jasmine.createSpy();
+            worker.subscribe(log);
+            runs(function () {
+                worker.publish(1, 2, 3);
+            });
+            waitsFor(function () {
+                return log.callCount > 0;
+            });
+            runs(function () {
+                expect(log).toHaveBeenCalledWith(3, 2, 1);
+            });
         });
 
+        it("can be piped to other channels or workers", function () {
+            var worker1 = new Worker({
+                async: true,
+                logic: function (request, respond) {
+                    request.push(1);
+                    respond(request);
+                }
+            });
+            var worker2 = new Worker({
+                async: true,
+                logic: function (request, respond) {
+                    request.push(2);
+                    respond(request);
+                }
+            });
+            worker1.pipe(worker2);
+            var log = jasmine.createSpy();
+            worker2.subscribe(log);
+            worker1.publish(0);
+            expect(log).toHaveBeenCalledWith(0, 1, 2);
+        });
     });
 
     describe("Channel", function () {
@@ -120,6 +159,18 @@ describe("channel.js", function () {
             expect(subscriber).toHaveBeenCalledWith(4, 5, 6);
             expect(subscriber).toHaveBeenCalledWith(7, 8, 9);
             expect(subscriber).not.toHaveBeenCalledWith("a", "b", "c");
+        });
+
+        it("can be piped to other channels", function () {
+
+            var channel1 = new Channel();
+            var channel2 = new Channel();
+            var channel3 = new Channel();
+            var log = jasmine.createSpy();
+            channel1.pipe(channel2).pipe(channel3);
+            channel3.subscribe(log);
+            channel1.publish(1, 2, 3);
+            expect(log).toHaveBeenCalledWith(1, 2, 3);
         });
 
     });

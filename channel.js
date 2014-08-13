@@ -1,79 +1,33 @@
-var Worker = function () {
-    this.init.apply(this, arguments);
-};
-Worker.prototype = {
-    constructor: Worker,
-    init: function () {
-        this.id = uniqueId();
-        this.input = new Channel();
-        this.output = new Channel();
-        this.update.apply(this, arguments);
-        this.input.subscribe(function () {
-            var response = this.processor.process.apply(this.processor, arguments);
-            this.output.publish.apply(this.output, response);
-        }.bind(this));
-    },
-    publish: function () {
-        this.input.publish.apply(this.input, arguments);
-    },
-    subscribe: function () {
-        this.output.subscribe.apply(this.output, arguments);
-    },
-    update: function () {
-        this.processor = Processor.create.apply(null, arguments);
-    }
+var extend = function (Ancestor, properties) {
+    var Descendant = function () {
+        if (this.init instanceof Function)
+            this.init.apply(this, arguments);
+    };
+    Descendant.prototype = Object.create(Ancestor.prototype);
+    if (properties)
+        for (var property in properties)
+            Descendant.prototype[property] = properties[property];
+    Descendant.prototype.constructor = Descendant;
+    return Descendant;
 };
 
-var Processor = function () {
-    this.init.apply(this, arguments);
-};
-Processor.prototype = {
-    constructor: Processor,
-    logic: function () {
-        return Array.apply(null, arguments);
-    },
-    init: function (config) {
-        this.id = uniqueId();
-        if (config)
-            this.update(config);
-    },
-    process: function () {
-        var results = this.logic.apply(this.context, arguments);
-        if (!(results instanceof Array))
-            throw new Error("Invalid processor logic.");
-        return results;
-    },
-    update: function (config) {
-        delete(this.logic);
-        this.logic = config.logic;
-        this.context = config.context;
-    }
-};
-Processor.create = function () {
-    var processor;
-    if (arguments[0] instanceof Processor)
-        processor = arguments[0];
-    else if (arguments[0] instanceof Function)
-        processor = new Processor({
-            logic: arguments[0],
-            context: arguments[1]
-        });
-    else
-        processor = new Processor(arguments[0]);
-    return processor;
-};
-
-var Channel = function () {
-    this.init.apply(this, arguments);
-};
-Channel.prototype = {
-    constructor: Channel,
+var Channel = extend(Object, {
     init: function () {
         this.id = uniqueId();
         this.subscriptions = {};
+        this.pipes = {};
     },
     subscribe: function () {
-        var subscription = Subscription.create.apply(null, arguments);
+        var subscription;
+        if (arguments[0] instanceof Subscription)
+            subscription = arguments[0];
+        else if (arguments[0] instanceof Function)
+            subscription = new Subscription({
+                subscriber: arguments[0],
+                context: arguments[1]
+            });
+        else
+            subscription = new Subscription(arguments[0]);
         this.subscriptions[subscription.id] = subscription;
         return subscription;
     },
@@ -85,14 +39,49 @@ Channel.prototype = {
             var subscription = this.subscriptions[id];
             subscription.notify.apply(subscription, arguments);
         }
+    },
+    pipe: function (channel) {
+        var subscription = this.subscribe(channel.publish, channel);
+        this.pipes[channel.id] = subscription;
+        return channel;
+    },
+    unpipe: function (channel) {
+        var subscription = this.pipes[channel.id];
+        this.unsubscribe(subscription);
     }
-};
+});
 
-var Subscription = function () {
-    this.init.apply(this, arguments);
-};
-Subscription.prototype = {
-    constructor: Subscription,
+var Worker = extend(Channel, {
+    logic: function (request, respond) {
+        respond(request);
+    },
+    init: function () {
+        Channel.prototype.init.call(this);
+        this.update.apply(this, arguments);
+    },
+    publish: function () {
+        var request = [].slice.call(arguments);
+        this.logic.call(this.context, request, function (response) {
+            Channel.prototype.publish.apply(this, response);
+        }.bind(this));
+    },
+    update: function () {
+        delete(this.logic);
+        delete(this.context);
+        if (arguments[0] instanceof Function) {
+            this.logic = arguments[0];
+            this.context = arguments[1];
+        }
+        else if (arguments[0] instanceof Object) {
+            var config = arguments[0];
+            if (config.logic)
+                this.logic = config.logic;
+            this.context = config.context;
+        }
+    }
+});
+
+var Subscription = extend(Object, {
     init: function (config) {
         this.id = uniqueId();
         if (config)
@@ -106,26 +95,9 @@ Subscription.prototype = {
         this.subscriber = config.subscriber;
         this.context = config.context;
     }
-};
-Subscription.create = function () {
-    var subscription;
-    if (arguments[0] instanceof Subscription)
-        subscription = arguments[0];
-    else if (arguments[0] instanceof Function)
-        subscription = new Subscription({
-            subscriber: arguments[0],
-            context: arguments[1]
-        });
-    else
-        subscription = new Subscription(arguments[0]);
-    return subscription;
-};
+});
 
-var Sequence = function () {
-    this.init.apply(this, arguments);
-};
-Sequence.prototype = {
-    constructor: Sequence,
+var Sequence = extend(Object, {
     init: function (config) {
         this.state = config.initial;
         this.generator = config.generator;
@@ -149,7 +121,7 @@ Sequence.prototype = {
             return this.next.apply(this, args);
         }.bind(this);
     }
-};
+});
 
 var uniqueId = new Sequence({
     generator: function (previousId) {
