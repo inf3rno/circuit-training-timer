@@ -197,24 +197,6 @@ describe("channel.js", function () {
 
     });
 
-    describe("Router", function () {
-
-        it("routes request", function () {
-            //MulticastRouter -> több címzett
-            //UnicastRouter -> egy címzett
-            //kérdés: csatornákat használjunk e
-            //hogyan szűrjük az üzeneteket
-            //hogyan adjuk át a Session-t
-            //érdemes e egyáltalán Session-el foglalkozni???
-            //imho a Session átadása a legjobban úgy megoldható, ha paraméternek használjuk
-            //tehát nem a beépített logika része, hanem teljesen opcionális
-            //nyilván lehet rá építeni majd magasabb szintű dolgokat...
-
-            //magyarul a Session itt is csak ugyanolyan paraméter, mint bármelyik másik
-
-        })
-    });
-
     describe("Subscription", function () {
 
         it("generates a unique id", function () {
@@ -240,7 +222,6 @@ describe("channel.js", function () {
         });
 
         it("can replace the subscriber", function () {
-
             var subscriber = jasmine.createSpy();
             var subscriber2 = jasmine.createSpy();
             var subscription = new Subscription({
@@ -277,7 +258,6 @@ describe("channel.js", function () {
             subscription.notify();
             expect(log).toHaveBeenCalledWith(b);
         });
-
 
     });
 
