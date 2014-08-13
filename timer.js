@@ -23,14 +23,18 @@ Timer.prototype = {
     },
     subscribe: function (events) {
         for (var type in events)
-            this.channel.subscribe((function (type, fn) {
-                return function (t) {
-                    if (t != type)
-                        return;
-                    var args = [].slice.call(arguments, 1);
-                    fn.apply(null, args);
-                };
-            })(type, events[type].bind(this)));
+            this.channel.subscribe(
+                new Subscription({
+                    subscriber: (function (type, fn) {
+                        return function (t) {
+                            if (t != type)
+                                return;
+                            var args = [].slice.call(arguments, 1);
+                            fn.apply(null, args);
+                        };
+                    })(type, events[type].bind(this))
+                })
+            );
     },
     start: function () {
         if (this.interval)

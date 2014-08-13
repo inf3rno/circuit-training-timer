@@ -13,7 +13,11 @@ describe("channel.js", function () {
 
             var channel = new Channel();
             var subscriber = jasmine.createSpy();
-            channel.subscribe(subscriber);
+            var subscription = new Subscription({
+                subscriber: subscriber
+            });
+            var result = channel.subscribe(subscription);
+            expect(result).toBe(subscription);
             channel.publish();
             expect(subscriber).toHaveBeenCalledWith();
             channel.publish(1, 2, 3);
@@ -26,9 +30,15 @@ describe("channel.js", function () {
             var subscriber1 = jasmine.createSpy(1);
             var subscriber2 = jasmine.createSpy(2);
             var subscriber3 = jasmine.createSpy(3);
-            var subscription1 = channel.subscribe(subscriber1);
-            var subscription2 = channel.subscribe(subscriber2);
-            var subscription3 = channel.subscribe(subscriber3);
+            var subscription1 = channel.subscribe(new Subscription({
+                subscriber: subscriber1
+            }));
+            var subscription2 = channel.subscribe(new Subscription({
+                subscriber: subscriber2
+            }));
+            var subscription3 = channel.subscribe(new Subscription({
+                subscriber: subscriber3
+            }));
             channel.publish(1, 2, 3);
             expect(subscriber1).toHaveBeenCalledWith(1, 2, 3);
             expect(subscriber2).toHaveBeenCalledWith(1, 2, 3);
@@ -78,7 +88,9 @@ describe("channel.js", function () {
             var channel3 = new Channel();
             var log = jasmine.createSpy();
             channel1.pipe(channel2).pipe(channel3);
-            channel3.subscribe(log);
+            channel3.subscribe(new Subscription({
+                subscriber: log
+            }));
             channel1.publish(1, 2, 3);
             expect(log).toHaveBeenCalledWith(1, 2, 3);
         });
@@ -90,19 +102,25 @@ describe("channel.js", function () {
         it("reflects request by default", function () {
             var worker = new Worker();
             var log = jasmine.createSpy();
-            worker.subscribe(log);
+            worker.subscribe(new Subscription({
+                subscriber: log
+            }));
             worker.publish(1, 2, 3);
             expect(log).toHaveBeenCalledWith(1, 2, 3);
         });
 
         it("sends the return values to the subscribers", function () {
 
-            var worker = new Worker(function (request, respond) {
-                request.push("z");
-                respond(request);
+            var worker = new Worker({
+                logic: function (request, respond) {
+                    request.push("z");
+                    respond(request);
+                }
             });
             var log = jasmine.createSpy();
-            worker.subscribe(log);
+            worker.subscribe(new Subscription({
+                subscriber: log
+            }));
             worker.publish("x", "y");
             expect(log).toHaveBeenCalledWith("x", "y", "z");
         });
@@ -110,19 +128,25 @@ describe("channel.js", function () {
         it("can replace its logic", function () {
             var worker = new Worker();
             var log = jasmine.createSpy();
-            worker.subscribe(log);
+            worker.subscribe(new Subscription({
+                subscriber: log
+            }));
             worker.publish(1, 2, 3);
             expect(log).toHaveBeenCalledWith(1, 2, 3);
-            worker.update(function (request, respond) {
-                var reverseOrder = function (a, b) {
-                    return b - a;
-                };
-                respond(request.sort(reverseOrder));
+            worker.update({
+                logic: function (request, respond) {
+                    var reverseOrder = function (a, b) {
+                        return b - a;
+                    };
+                    respond(request.sort(reverseOrder));
+                }
             });
             worker.publish(1, 2, 3);
             expect(log).toHaveBeenCalledWith(3, 2, 1);
-            worker.update(function (request, respond) {
-                respond([request.length]);
+            worker.update({
+                logic: function (request, respond) {
+                    respond([request.length]);
+                }
             });
             worker.publish(1, 2, 3);
             expect(log).toHaveBeenCalledWith(3);
@@ -137,11 +161,12 @@ describe("channel.js", function () {
                         };
                         respond(request.sort(reverseOrder));
                     }, 1);
-                },
-                async: true
+                }
             });
             var log = jasmine.createSpy();
-            worker.subscribe(log);
+            worker.subscribe(new Subscription({
+                subscriber: log
+            }));
             runs(function () {
                 worker.publish(1, 2, 3);
             });
@@ -155,7 +180,6 @@ describe("channel.js", function () {
 
         it("can be piped to other channels or workers", function () {
             var worker1 = new Worker({
-                async: true,
                 logic: function (request, respond) {
                     request.push(1);
                     respond(request);
@@ -171,8 +195,12 @@ describe("channel.js", function () {
             worker1.pipe(worker2);
             var log1 = jasmine.createSpy();
             var log2 = jasmine.createSpy();
-            worker1.subscribe(log1);
-            worker2.subscribe(log2);
+            worker1.subscribe(new Subscription({
+                subscriber: log1
+            }));
+            worker2.subscribe(new Subscription({
+                subscriber: log2
+            }));
             worker1.publish(0);
             expect(log1).toHaveBeenCalledWith(0, 1);
             expect(log2).toHaveBeenCalledWith(0, 1, 2);
@@ -186,11 +214,15 @@ describe("channel.js", function () {
     describe("SyncWorker", function () {
 
         it("works with return values instead of callback", function () {
-            var worker = new SyncWorker(function (a, b) {
-                return [a, b, "c"];
+            var worker = new SyncWorker({
+                logic: function (a, b) {
+                    return [a, b, "c"];
+                }
             });
             var log = jasmine.createSpy();
-            worker.subscribe(log);
+            worker.subscribe(new Subscription({
+                subscriber: log
+            }));
             worker.publish("a", "b");
             expect(log).toHaveBeenCalledWith("a", "b", "c");
         });

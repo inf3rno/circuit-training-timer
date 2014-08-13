@@ -20,17 +20,7 @@ var Channel = extend(Object, {
         this.subscriptions = {};
         this.pipes = {};
     },
-    subscribe: function () {
-        var subscription;
-        if (arguments[0] instanceof Subscription)
-            subscription = arguments[0];
-        else if (arguments[0] instanceof Function)
-            subscription = new Subscription({
-                subscriber: arguments[0],
-                context: arguments[1]
-            });
-        else
-            subscription = new Subscription(arguments[0]);
+    subscribe: function (subscription) {
         this.subscriptions[subscription.id] = subscription;
         return subscription;
     },
@@ -44,8 +34,12 @@ var Channel = extend(Object, {
         }
     },
     pipe: function (channel) {
-        var subscription = this.subscribe(channel.publish, channel);
+        var subscription = new Subscription({
+            subscriber: channel.publish,
+            context: channel
+        });
         this.pipes[channel.id] = subscription;
+        this.subscribe(subscription);
         return channel;
     },
     unpipe: function (channel) {
@@ -58,9 +52,10 @@ var Worker = Channel.extend({
     logic: function (request, respond) {
         respond(request);
     },
-    init: function () {
+    init: function (config) {
         Channel.prototype.init.call(this);
-        this.update.apply(this, arguments);
+        if (config)
+            this.update(config);
     },
     publish: function () {
         var request = [].slice.call(arguments);
@@ -68,19 +63,12 @@ var Worker = Channel.extend({
             Channel.prototype.publish.apply(this, response);
         }.bind(this));
     },
-    update: function () {
+    update: function (config) {
         delete(this.logic);
         delete(this.context);
-        if (arguments[0] instanceof Function) {
-            this.logic = arguments[0];
-            this.context = arguments[1];
-        }
-        else if (arguments[0] instanceof Object) {
-            var config = arguments[0];
-            if (config.logic)
-                this.logic = config.logic;
-            this.context = config.context;
-        }
+        if (config.logic)
+            this.logic = config.logic;
+        this.context = config.context;
     }
 });
 
