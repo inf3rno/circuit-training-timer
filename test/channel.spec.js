@@ -1,5 +1,6 @@
 var Channel = require("../channel"),
     Worker = Channel.Worker,
+    SyncWorker = Channel.SyncWorker,
     Subscription = Channel.Subscription,
     Sequence = Channel.Sequence,
     uniqueId = Channel.uniqueId;
@@ -180,6 +181,38 @@ describe("channel.js", function () {
             expect(log1).toHaveBeenCalledWith("x", 1);
             expect(log2).not.toHaveBeenCalledWith("x", 1, 2);
         });
+    });
+
+    describe("SyncWorker", function () {
+
+        it("works with return values instead of callback", function () {
+            var worker = new SyncWorker(function (a, b) {
+                return [a, b, "c"];
+            });
+            var log = jasmine.createSpy();
+            worker.subscribe(log);
+            worker.publish("a", "b");
+            expect(log).toHaveBeenCalledWith("a", "b", "c");
+        });
+
+    });
+
+    describe("Router", function () {
+
+        it("routes request", function () {
+            //MulticastRouter -> több címzett
+            //UnicastRouter -> egy címzett
+            //kérdés: csatornákat használjunk e
+            //hogyan szűrjük az üzeneteket
+            //hogyan adjuk át a Session-t
+            //érdemes e egyáltalán Session-el foglalkozni???
+            //imho a Session átadása a legjobban úgy megoldható, ha paraméternek használjuk
+            //tehát nem a beépített logika része, hanem teljesen opcionális
+            //nyilván lehet rá építeni majd magasabb szintű dolgokat...
+
+            //magyarul a Session itt is csak ugyanolyan paraméter, mint bármelyik másik
+
+        })
     });
 
     describe("Subscription", function () {

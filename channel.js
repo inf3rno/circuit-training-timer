@@ -84,6 +84,16 @@ var Worker = Channel.extend({
     }
 });
 
+var SyncWorker = Worker.extend({
+    logic: function () {
+        return arguments;
+    },
+    publish: function (){
+        var response = this.logic.apply(this.context, arguments);
+        Channel.prototype.publish.apply(this, response);
+    }
+});
+
 var Subscription = extend(Object, {
     init: function (config) {
         this.id = uniqueId();
@@ -139,6 +149,7 @@ var uniqueId = new Sequence({
         Channel[name] = helpers[name];
 })({
     Worker: Worker,
+    SyncWorker: SyncWorker,
     Channel: Channel,
     Subscription: Subscription,
     Sequence: Sequence,
