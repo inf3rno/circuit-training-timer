@@ -1,5 +1,7 @@
 var Channel = require("../channel"),
+    Connectable = Channel.Connectable,
     Worker = Channel.Worker,
+    AsyncWorker = Channel.AsyncWorker,
     SyncWorker = Channel.SyncWorker,
     Subscription = Channel.Subscription,
     Sequence = Channel.Sequence,
@@ -7,7 +9,21 @@ var Channel = require("../channel"),
 
 describe("channel.js", function () {
 
+    describe("Connectable", function (){
+
+        it("cannot be instantiated", function (){
+            expect(function (){
+                new Connectable();
+            }).toThrow();
+        });
+    });
+
     describe("Channel", function () {
+
+        it ("is extension of Connectable", function (){
+            var channel = new Channel();
+            expect(channel instanceof Connectable).toBe(true);
+        });
 
         it("delivers messages to the subscribers", function () {
 
@@ -97,10 +113,25 @@ describe("channel.js", function () {
 
     });
 
-    describe("Worker", function () {
+    describe("Worker", function (){
+
+        it("cannot be instantiated", function (){
+            expect(function (){
+                new Worker();
+            }).toThrow();
+        });
+    });
+
+    describe("AsyncWorker", function () {
+
+        it ("is extension of Connectable and Worker", function (){
+            var worker = new AsyncWorker();
+            expect(worker instanceof Connectable).toBe(true);
+            expect(worker instanceof Worker).toBe(true);
+        });
 
         it("reflects request by default", function () {
-            var worker = new Worker();
+            var worker = new AsyncWorker();
             var log = jasmine.createSpy();
             worker.subscribe(new Subscription({
                 subscriber: log
@@ -111,7 +142,7 @@ describe("channel.js", function () {
 
         it("sends the return values to the subscribers", function () {
 
-            var worker = new Worker({
+            var worker = new AsyncWorker({
                 logic: function (request, respond) {
                     request.push("z");
                     respond(request);
@@ -126,7 +157,7 @@ describe("channel.js", function () {
         });
 
         it("can replace its logic", function () {
-            var worker = new Worker();
+            var worker = new AsyncWorker();
             var log = jasmine.createSpy();
             worker.subscribe(new Subscription({
                 subscriber: log
@@ -153,7 +184,7 @@ describe("channel.js", function () {
         });
 
         it("supports async processing", function () {
-            var worker = new Worker({
+            var worker = new AsyncWorker({
                 logic: function (request, respond) {
                     setTimeout(function () {
                         var reverseOrder = function (a, b) {
@@ -179,13 +210,13 @@ describe("channel.js", function () {
         });
 
         it("can be piped to other channels or workers", function () {
-            var worker1 = new Worker({
+            var worker1 = new AsyncWorker({
                 logic: function (request, respond) {
                     request.push(1);
                     respond(request);
                 }
             });
-            var worker2 = new Worker({
+            var worker2 = new AsyncWorker({
                 async: true,
                 logic: function (request, respond) {
                     request.push(2);
@@ -213,12 +244,19 @@ describe("channel.js", function () {
 
     describe("SyncWorker", function () {
 
+        it ("is extension of Connectable and Worker", function (){
+            var worker = new SyncWorker();
+            expect(worker instanceof Connectable).toBe(true);
+            expect(worker instanceof Worker).toBe(true);
+        });
+
         it("works with return values instead of callback", function () {
             var worker = new SyncWorker({
                 logic: function (a, b) {
                     return [a, b, "c"];
                 }
             });
+            expect(worker instanceof Worker).toBe(true);
             var log = jasmine.createSpy();
             worker.subscribe(new Subscription({
                 subscriber: log

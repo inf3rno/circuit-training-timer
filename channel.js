@@ -14,7 +14,23 @@ var extend = function (Ancestor, properties) {
     return Descendant;
 };
 
-var Channel = extend(Object, {
+var abstractMethod = function () {
+    throw new SyntaxError("Called abstract method.");
+};
+var abstractClass = function () {
+    throw new SyntaxError("Instantiated abstract class.");
+};
+
+var Connectable = extend(Object, {
+    init: abstractClass,
+    subscribe: abstractMethod,
+    unsubscribe: abstractMethod,
+    publish: abstractMethod,
+    pipe: abstractMethod,
+    unpipe: abstractMethod
+});
+
+var Channel = Connectable.extend({
     init: function () {
         this.id = uniqueId();
         this.subscriptions = {};
@@ -48,20 +64,28 @@ var Channel = extend(Object, {
     }
 });
 
-var Worker = Channel.extend({
-    logic: function (request, respond) {
-        respond(request);
-    },
+var Worker = Connectable.extend({
+    logic: abstractMethod,
+    channel: undefined,
     init: function (config) {
-        Channel.prototype.init.call(this);
+        if (this.constructor === Worker)
+            abstractClass();
+        this.channel = new Channel();
         if (config)
             this.update(config);
     },
-    publish: function () {
-        var request = [].slice.call(arguments);
-        this.logic.call(this.context, request, function (response) {
-            Channel.prototype.publish.apply(this, response);
-        }.bind(this));
+    subscribe: function (subscription) {
+        return this.channel.subscribe(subscription);
+    },
+    unsubscribe: function (subscription) {
+        this.channel.unsubscribe(subscription);
+    },
+    publish: abstractMethod,
+    pipe: function (channel) {
+        return this.channel.pipe(channel);
+    },
+    unpipe: function (channel) {
+        this.channel.unpipe(channel);
     },
     update: function (config) {
         delete(this.logic);
@@ -72,13 +96,26 @@ var Worker = Channel.extend({
     }
 });
 
+var AsyncWorker = Worker.extend({
+    logic: function (request, respond) {
+        respond(request);
+    },
+    publish: function () {
+        var request = [].slice.call(arguments);
+        var channel = this.channel;
+        this.logic.call(this.context, request, function (response) {
+            channel.publish.apply(channel, response);
+        });
+    }
+});
+
 var SyncWorker = Worker.extend({
     logic: function () {
         return arguments;
     },
     publish: function () {
         var response = this.logic.apply(this.context, arguments);
-        Channel.prototype.publish.apply(this, response);
+        this.channel.publish.apply(this.channel, response);
     }
 });
 
@@ -136,8 +173,10 @@ var uniqueId = new Sequence({
     for (var name in helpers)
         Channel[name] = helpers[name];
 })({
+    Connectable: Connectable,
     Channel: Channel,
     Worker: Worker,
+    AsyncWorker: AsyncWorker,
     SyncWorker: SyncWorker,
     Subscription: Subscription,
     Sequence: Sequence,
