@@ -8,30 +8,35 @@ Timer.prototype = {
     startDate: null,
     length: null,
     tickFrequency: 100,
-    events: null,
+    channel: null,
     init: function (config) {
         if (config.length)
             this.setLength(config.length);
-
         if (config.tickFrequency)
             this.tickFrequency = config.tickFrequency;
-
-        this.events = new EventBus("start", "tick", "clear", "end");
+        this.channel = new Channel();
         if (config.events)
             this.subscribe(config.events);
     },
-    setLength: function (length){
+    setLength: function (length) {
         this.length = length;
     },
     subscribe: function (events) {
         for (var type in events)
-            this.events.on(type, events[type].bind(this));
+            this.channel.subscribe((function (type, fn) {
+                return function (t) {
+                    if (t != type)
+                        return;
+                    var args = [].slice.call(arguments, 1);
+                    fn.apply(null, args);
+                };
+            })(type, events[type].bind(this)));
     },
     start: function () {
         if (this.interval)
             this.clear();
         this.startDate = new Date();
-        this.events.trigger("start");
+        this.channel.publish("start");
         this.interval = setInterval(this.tick.bind(this), this.tickFrequency);
         this.tick();
     },
@@ -40,16 +45,16 @@ Timer.prototype = {
         if (this.elapsedTime > this.length)
             this.end();
         else
-            this.events.trigger("tick", this.elapsedTime, this.length);
+            this.channel.publish("tick", this.elapsedTime, this.length);
     },
     end: function () {
         this.clear();
-        this.events.trigger("end");
+        this.channel.publish("end");
     },
     clear: function () {
         clearInterval(this.interval);
         this.interval = null;
         delete(this.elapsedTime);
-        this.events.trigger("clear");
+        this.channel.publish("clear");
     }
 };
