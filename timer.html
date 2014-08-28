@@ -4,7 +4,8 @@
     <title>timer - </title>
     <script src="vendor/jquery-2.1.1.min.js"></script>
     <script src="vendor/underscore-1.6.0.min.js"></script>
-    <script src="channel.js"></script>
+    <script src="vendor/dflo.browser.recent.js"></script>
+    <script src="gui.js"></script>
     <script src="timer.js"></script>
     <script src="timerview.js"></script>
     <link rel="stylesheet" href="timer.css"/>
@@ -12,98 +13,20 @@
 <body>
 <script>
 
-var doc = $(document);
-
-var main = function () {
-    console.log("main");
-
-    var timer = new Timer({});
-    var timerView = buildTimerView();
-
-    $(document.body).append(timerView.el);
-
-    var view = $(".timer").first();
-    var config = view.find(".config");
-    var controllers = view.find(".controllers");
-    var sounds = view.find(".sounds");
-
-    var configLengthSelect = config.find(".length");
-    var configIntervalCheckbox = config.find(".interval");
-    var startButton = controllers.find(".start");
-    var stopButton = controllers.find(".stop");
-    var timerDisplay = view.find(".display");
-    var beepAudio = sounds.find(".beep").get(0);
-
-    var timeToText = function (time) {
-        var text = "";
-        var seconds = Math.floor(time / 1000) % 60;
-        var minutes = Math.floor(time / 1000 / 60);
-        if (minutes > 9)
-            text += String(minutes);
-        else
-            text += "0" + String(minutes);
-        text += ":";
-        if (seconds > 9)
-            text += String(seconds);
-        else
-            text += "0" + String(seconds);
-        return text;
-    };
-
-    // model -> view binding
-
-    timer.subscribe({
-        start: function () {
-            console.log("start");
-            startButton.prop("disabled", true);
-            stopButton.prop("disabled", false);
-        },
-        tick: function (elapsedTime, length) {
-            console.log("tick");
-            var remainingTime = length - elapsedTime;
-            var timeText = timeToText(remainingTime);
-            timerDisplay.text(timeText);
-            doc.prop("title", "timer " + timeText);
-        },
-        clear: function () {
-            console.log("clear");
-            startButton.prop("disabled", false);
-            stopButton.prop("disabled", true);
-            timerDisplay.text("-");
-            doc.prop("title", "timer -");
-        },
-        end: function () {
-            console.log("end");
-            beepAudio.pause();
-            beepAudio.currentTime = 0;
-            beepAudio.play();
-            if (configIntervalCheckbox.prop("checked"))
-                timer.start();
-        }
-    });
-
-
-
-    // view -> model binding
-
-    timer.setLength(configLengthSelect.val() * 1000);
-    configLengthSelect.change(function () {
-        timer.setLength(configLengthSelect.val() * 1000);
-    });
-
-    startButton.click(function (e) {
-        e.preventDefault();
-        timer.start();
-    });
-    stopButton.click(function (e) {
-        e.preventDefault();
+    $(document).ready(function () {
+        var timer = new Timer();
+        var view = new TimerView();
+        timer.started.connect(view.started);
+        timer.ticked.connect(view.ticked);
+        timer.cleared.connect(view.cleared);
+        timer.ended.connect(view.ended);
+        view.lengthSelected.connect(timer.lengthSelected);
+        view.startInitiated.connect(timer.startInitiated);
+        view.stopInitiated.connect(timer.stopInitiated);
+        view.render();
         timer.clear();
+        $(document.body).append(view.el);
     });
-
-
-};
-
-doc.ready(main);
 
 </script>
 </body>
