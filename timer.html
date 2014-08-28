@@ -5,7 +5,6 @@
     <script src="vendor/jquery-2.1.1.min.js"></script>
     <script src="vendor/underscore-1.6.0.min.js"></script>
     <script src="vendor/dflo.browser.recent.js"></script>
-    <script src="gui.js"></script>
     <script src="timer.js"></script>
     <script src="timerview.js"></script>
     <link rel="stylesheet" href="timer.css"/>
@@ -16,13 +15,13 @@
     $(document).ready(function () {
         var timer = new Timer();
         var view = new TimerView();
-        timer.started.connect(view.started);
-        timer.ticked.connect(view.ticked);
-        timer.cleared.connect(view.cleared);
-        timer.ended.connect(view.ended);
-        view.lengthSelected.connect(timer.lengthSelected);
-        view.startInitiated.connect(timer.startInitiated);
-        view.stopInitiated.connect(timer.stopInitiated);
+        timer.startedOut.connect(view.startedIn);
+        timer.tickedOut.connect(view.tickedIn);
+        timer.clearedOut.connect(view.clearedIn);
+        timer.endedOut.connect(view.endedIn);
+        view.changeLengthOut.connect(timer.changeLengthIn);
+        view.startOut.connect(timer.startIn);
+        view.stopOut.connect(timer.stopIn);
         view.render();
         timer.clear();
         $(document.body).append(view.el);
