@@ -13,20 +13,77 @@
 <script>
 
     $(document).ready(function () {
-        var timer = new Timer();
+
+        var CustomComponent = dflo.CustomComponent;
+        var OutputPort = dflo.OutputPort;
+        var InputPort = dflo.InputPort;
+        var Message = dflo.Message;
+
+        var timerAdapter = new CustomComponent(function () {
+            var timer = new Timer({
+                events: {
+                    started: function () {
+                        this.ports.started.relay(new Message());
+                    }.bind(this),
+                    ticked: function (elapsedTime, length) {
+                        this.ports.ticked.relay(new Message([elapsedTime, length]));
+                    }.bind(this),
+                    cleared: function () {
+                        this.ports.cleared.relay(new Message());
+                    }.bind(this),
+                    ended: function () {
+                        this.ports.ended.relay(new Message());
+                    }.bind(this)
+                }
+            });
+
+            this.ports = {
+                changeLength: new InputPort({
+                    callback: function (message) {
+                        timer.changeLength(message.data[0]);
+                    },
+                    component: this
+                }),
+                start: new InputPort({
+                    callback: timer.start,
+                    context: timer,
+                    component: this
+                }),
+                started: new OutputPort({
+                    component: this
+                }),
+                stop: new InputPort({
+                    callback: timer.clear,
+                    context: timer,
+                    component: this
+                }),
+                ticked: new OutputPort({
+                    component: this
+                }),
+                cleared: new OutputPort({
+                    component: this
+                }),
+                ended: new OutputPort({
+                    component: this
+                })
+            };
+
+            this.clear = timer.clear.bind(timer);
+        });
+
         var view = new TimerView();
 
-        timer.startedOut.ports.stdout.connect(view.startedIn.ports.stdin);
-        timer.tickedOut.ports.stdout.connect(view.tickedIn.ports.stdin);
-        timer.clearedOut.ports.stdout.connect(view.clearedIn.ports.stdin);
-        timer.endedOut.ports.stdout.connect(view.endedIn.ports.stdin);
+        timerAdapter.ports.started.connect(view.startedIn.ports.stdin);
+        timerAdapter.ports.ticked.connect(view.tickedIn.ports.stdin);
+        timerAdapter.ports.cleared.connect(view.clearedIn.ports.stdin);
+        timerAdapter.ports.ended.connect(view.endedIn.ports.stdin);
 
-        view.changeLengthOut.ports.stdout.connect(timer.changeLengthIn.ports.stdin);
-        view.startOut.ports.stdout.connect(timer.startIn.ports.stdin);
-        view.stopOut.ports.stdout.connect(timer.stopIn.ports.stdin);
+        view.changeLengthOut.ports.stdout.connect(timerAdapter.ports.changeLength);
+        view.startOut.ports.stdout.connect(timerAdapter.ports.start);
+        view.stopOut.ports.stdout.connect(timerAdapter.ports.stop);
 
         view.render();
-        timer.clear();
+        timerAdapter.clear();
         $(document.body).append(view.el);
     });
 
