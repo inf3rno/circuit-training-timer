@@ -15,13 +15,16 @@
     $(document).ready(function () {
         var timer = new Timer();
         var view = new TimerView();
-        timer.startedOut.connect(view.startedIn);
-        timer.tickedOut.connect(view.tickedIn);
-        timer.clearedOut.connect(view.clearedIn);
-        timer.endedOut.connect(view.endedIn);
-        view.changeLengthOut.connect(timer.changeLengthIn);
-        view.startOut.connect(timer.startIn);
-        view.stopOut.connect(timer.stopIn);
+
+        timer.startedOut.ports.stdout.connect(view.startedIn.ports.stdin);
+        timer.tickedOut.ports.stdout.connect(view.tickedIn.ports.stdin);
+        timer.clearedOut.ports.stdout.connect(view.clearedIn.ports.stdin);
+        timer.endedOut.ports.stdout.connect(view.endedIn.ports.stdin);
+
+        view.changeLengthOut.ports.stdout.connect(timer.changeLengthIn.ports.stdin);
+        view.startOut.ports.stdout.connect(timer.startIn.ports.stdin);
+        view.stopOut.ports.stdout.connect(timer.stopIn.ports.stdin);
+
         view.render();
         timer.clear();
         $(document.body).append(view.el);

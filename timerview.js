@@ -32,6 +32,7 @@
             this.stopOut = new Publisher();
         },
         render: function () {
+            //all
             this.lengthSelect = $("<select>").attr({class: "length"});
             for (var length in this.lengthAlternatives)
                 this.lengthSelect.append($("<option>").append(
@@ -68,10 +69,12 @@
             return this;
         },
         started: function () {
+            //button1, button2
             this.startButton.prop("disabled", true);
             this.stopButton.prop("disabled", false);
         },
         ticked: function (elapsedTime, length) {
+            //display, title
             var remainingTime = length - elapsedTime;
             var timeText = "";
             var remainingSeconds = Math.floor(remainingTime / 1000) % 60;
@@ -89,12 +92,14 @@
             $(document).prop("title", "timer " + timeText);
         },
         cleared: function () {
+            //button1, button2, display, title
             this.startButton.prop("disabled", false);
             this.stopButton.prop("disabled", true);
             this.display.text("-");
             $(document).prop("title", "timer -");
         },
         ended: function () {
+            //audio, checkbox
             var beep = this.beepAudio.get(0);
             beep.pause();
             beep.currentTime = 0;
