@@ -18,6 +18,7 @@
         var OutputPort = dflo.OutputPort;
         var InputPort = dflo.InputPort;
         var Message = dflo.Message;
+        var Builder = dflo.Builder;
 
         var timerAdapter = new CustomComponent(function () {
             var timer = new Timer({
@@ -40,7 +41,7 @@
             this.ports = {
                 changeLength: new InputPort({
                     callback: function (message) {
-                        timer.changeLength(message.data[0]);
+                        timer.changeLength(message.data);
                     },
                     component: this
                 }),
@@ -71,20 +72,94 @@
             this.clear = timer.clear.bind(timer);
         });
 
-        var view = new TimerView();
+        var AudioFile = view.AudioFile;
+        var Title = view.Title;
+        var Display = view.Display;
+        var Button = view.Button;
+        var IntervalCheckbox = view.IntervalCheckbox;
+        var LengthSelect = view.LengthSelect;
+        var Time2Text = view.Time2Text;
+        var SkeletonView = view.SkeletonView;
 
-        timerAdapter.ports.started.connect(view.startedIn.ports.stdin);
-        timerAdapter.ports.ticked.connect(view.tickedIn.ports.stdin);
-        timerAdapter.ports.cleared.connect(view.clearedIn.ports.stdin);
-        timerAdapter.ports.ended.connect(view.endedIn.ports.stdin);
+        var beepAudio = new AudioFile({
+            class: "beep",
+            source: "vendor/beep-07.wav"
+        });
+        var title = new Title();
+        var display = new Display();
+        var startButton = new Button({
+            class: "start",
+            label: "start"
+        });
+        var stopButton = new Button({
+            class: "stop",
+            label: "stop"
+        });
+        var intervalCheckbox = new IntervalCheckbox();
+        var lengthSelect = new LengthSelect();
+        var time2Text = new Time2Text();
 
-        view.changeLengthOut.ports.stdout.connect(timerAdapter.ports.changeLength);
-        view.startOut.ports.stdout.connect(timerAdapter.ports.start);
-        view.stopOut.ports.stdout.connect(timerAdapter.ports.stop);
+        var skeleton = new SkeletonView();
 
-        view.render();
+        var builder = new Builder();
+        builder.connectAll(
+                timerAdapter.ports.changeLength,
+                lengthSelect.ports.selected
+        );
+        builder.connectAll(
+                timerAdapter.ports.start,
+                intervalCheckbox.ports.next,
+                startButton.ports.clicked
+        );
+        builder.connectAll(
+                timerAdapter.ports.started,
+                startButton.ports.disable,
+                stopButton.ports.enable
+        );
+        builder.connectAll(
+                timerAdapter.ports.stop,
+                stopButton.ports.clicked
+        );
+        builder.connectAll(
+                timerAdapter.ports.ended,
+                beepAudio.ports.replay,
+                intervalCheckbox.ports.ended
+        );
+        builder.connectAll(
+                timerAdapter.ports.cleared,
+                startButton.ports.enable,
+                stopButton.ports.disable,
+                display.ports.clear,
+                title.ports.clear
+        );
+        builder.connectAll(
+                timerAdapter.ports.ticked,
+                time2Text.ports.stdin
+        );
+        builder.connectAll(
+                time2Text.ports.stdout,
+                display.ports.text,
+                title.ports.text
+        );
+
+        skeleton.render();
+        startButton.render();
+        stopButton.render();
+        intervalCheckbox.render();
+        lengthSelect.render();
+        display.render();
+        beepAudio.render();
+
+        lengthSelect.el.appendTo(skeleton.config);
+        intervalCheckbox.el.appendTo(skeleton.config);
+        intervalCheckbox.label.appendTo(skeleton.config);
+        display.el.appendTo(skeleton.display);
+        startButton.el.appendTo(skeleton.controllers);
+        stopButton.el.appendTo(skeleton.controllers);
+        beepAudio.el.appendTo(skeleton.sounds);
+
         timerAdapter.clear();
-        $(document.body).append(view.el);
+        $(document.body).append(skeleton.el);
     });
 
 </script>
