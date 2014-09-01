@@ -5,7 +5,7 @@
     var Subscriber = dflo.Subscriber;
     var Publisher = dflo.Publisher;
 
-    window.TimerView = Class.extend({
+    var LengthSelect = Class.extend({
         lengthAlternatives: {
             3600: "1 hour",
             1800: "30 mins",
@@ -21,60 +21,121 @@
             2: "2 secs"
         },
         defaultLength: 120,
-        beepAudioSource: "vendor/beep-07.wav",
         init: function () {
-            this.startedIn = new Subscriber({callback: this.started, context: this});
-            this.tickedIn = new Subscriber({callback: this.ticked, context: this});
-            this.clearedIn = new Subscriber({callback: this.cleared, context: this});
-            this.endedIn = new Subscriber({callback: this.ended, context: this});
             this.changeLengthOut = new Publisher();
-            this.startOut = new Publisher();
+        },
+        render: function () {
+            this.el = $("<select>").attr({class: "length"});
+            for (var length in this.lengthAlternatives)
+                this.el.append($("<option>").append(
+                    this.lengthAlternatives[length]).attr({value: length, selected: length == this.defaultLength})
+                );
+            this.el.change(function () {
+                this.changeLengthOut.publish(this.el.val() * 1000);
+            }.bind(this));
+            this.changeLengthOut.publish(this.el.val() * 1000);
+        }
+    });
+
+    var IntervalCheckbox = Class.extend({
+        init: function (startOut) {
+            this.startOut = startOut;
+            this.ended = function () {
+                if (this.el.prop("checked"))
+                    startOut.publish();
+            }.bind(this)
+        },
+        render: function () {
+            this.el = $("<input>").attr({class: "interval", type: "checkbox", checked: "checked", id: "chk_id_" + uniqueId()});
+            this.label = $("<label>").attr({for: this.el.attr("id")}).append("interval");
+        }
+    });
+
+    var StopButton = Class.extend({
+        init: function () {
             this.stopOut = new Publisher();
         },
         render: function () {
-            //all
-            this.lengthSelect = $("<select>").attr({class: "length"});
-            for (var length in this.lengthAlternatives)
-                this.lengthSelect.append($("<option>").append(
-                    this.lengthAlternatives[length]).attr({value: length, selected: length == this.defaultLength})
-                );
-            this.lengthSelect.change(function () {
-                this.changeLengthOut.publish(this.lengthSelect.val() * 1000);
-            }.bind(this));
-            this.changeLengthOut.publish(this.lengthSelect.val() * 1000);
-
-            this.intervalCheckbox = $("<input>").attr({class: "interval", type: "checkbox", checked: "checked", id: "chk_id_" + uniqueId()});
-            this.intervalCheckboxLabel = $("<label>").attr({for: this.intervalCheckbox.attr("id")}).append("interval");
-
-            this.display = $("<section>").attr({class: "display"});
-
-            this.startButton = $("<button>").attr({"class": "start"}).append("start");
-            this.startButton.click(function () {
-                this.startOut.publish();
-            }.bind(this));
-
-            this.stopButton = $("<button>").attr({"class": "stop"}).append("stop");
-            this.stopButton.click(function () {
+            this.el = $("<button>").attr({"class": "stop"}).append("stop");
+            this.el.click(function () {
                 this.stopOut.publish();
             }.bind(this));
-
-            this.beepAudio = $("<audio>").attr({class: "beep", src: this.beepAudioSource});
-
-            this.el = $("<section>").attr({class: "timer"}).append(
-                $("<section>").attr({class: "config"}).append(this.lengthSelect, this.intervalCheckbox, this.intervalCheckboxLabel),
-                this.display,
-                $("<section>").attr({class: "controllers"}).append(this.startButton, this.stopButton),
-                $("<section>").attr({class: "sounds"}).append(this.beepAudio)
-            );
-            return this;
         },
         started: function () {
-            //button1, button2
-            this.startButton.prop("disabled", true);
-            this.stopButton.prop("disabled", false);
+            this.el.prop("disabled", false);
         },
-        ticked: function (elapsedTime, length) {
-            //display, title
+        cleared: function () {
+            this.el.prop("disabled", true);
+        }
+    });
+
+    var StartButton = Class.extend({
+        init: function () {
+            this.startOut = new Publisher();
+        },
+        render: function () {
+            this.el = $("<button>").attr({"class": "start"}).append("start");
+            this.el.click(function () {
+                this.startOut.publish();
+            }.bind(this));
+        },
+        started: function () {
+            this.el.prop("disabled", true);
+        },
+        cleared: function () {
+            this.el.prop("disabled", false);
+        }
+    });
+
+
+    var Display = Class.extend({
+        init: function () {
+
+        },
+        render: function () {
+            this.el = $("<section>").attr({class: "display"});
+        },
+        ticked: function (timeText) {
+            this.el.text(timeText);
+        },
+        cleared: function () {
+            this.el.text("-");
+        }
+    });
+
+    var Title = Class.extend({
+        init: function () {
+
+        },
+        ticked: function (timeText) {
+            $(document).prop("title", "timer " + timeText);
+        },
+        cleared: function () {
+            $(document).prop("title", "timer -");
+        }
+    });
+
+    var BeepAudio = Class.extend({
+        beepAudioSource: "vendor/beep-07.wav",
+        init: function (){
+
+        },
+        render: function (){
+            this.el = $("<audio>").attr({class: "beep", src: this.beepAudioSource});
+        },
+        ended: function (){
+            var beep = this.el.get(0);
+            beep.pause();
+            beep.currentTime = 0;
+            beep.play();
+        }
+    });
+
+    var TimeToText = Class.extend({
+        init: function (){
+
+        },
+        make: function (elapsedTime, length){
             var remainingTime = length - elapsedTime;
             var timeText = "";
             var remainingSeconds = Math.floor(remainingTime / 1000) % 60;
@@ -88,25 +149,70 @@
                 timeText += String(remainingSeconds);
             else
                 timeText += "0" + String(remainingSeconds);
-            this.display.text(timeText);
-            $(document).prop("title", "timer " + timeText);
-        },
-        cleared: function () {
-            //button1, button2, display, title
-            this.startButton.prop("disabled", false);
-            this.stopButton.prop("disabled", true);
-            this.display.text("-");
-            $(document).prop("title", "timer -");
-        },
-        ended: function () {
-            //audio, checkbox
-            var beep = this.beepAudio.get(0);
-            beep.pause();
-            beep.currentTime = 0;
-            beep.play();
-            if (this.intervalCheckbox.prop("checked"))
-                this.startOut.publish();
+            return timeText;
         }
     });
 
-})(window.dflo, window.gui);
+    window.TimerView = Class.extend({
+        init: function () {
+            this.startedIn = new Subscriber({callback: this.started, context: this});
+            this.tickedIn = new Subscriber({callback: this.ticked, context: this});
+            this.clearedIn = new Subscriber({callback: this.cleared, context: this});
+            this.endedIn = new Subscriber({callback: this.ended, context: this});
+
+            this.beepAudio = new BeepAudio();
+
+            this.title = new Title();
+            this.display = new Display();
+
+            this.startButton = new StartButton();
+            this.startOut = this.startButton.startOut;
+
+            this.stopButton = new StopButton();
+            this.stopOut = this.stopButton.stopOut;
+
+            this.intervalCheckbox = new IntervalCheckbox(this.startOut);
+
+            this.lengthSelect = new LengthSelect();
+            this.changeLengthOut = this.lengthSelect.changeLengthOut;
+        },
+        render: function () {
+            this.startButton.render();
+            this.stopButton.render();
+            this.intervalCheckbox.render();
+            this.lengthSelect.render();
+            this.display.render();
+
+            this.beepAudio.render();
+
+            this.el = $("<section>").attr({class: "timer"}).append(
+                $("<section>").attr({class: "config"}).append(this.lengthSelect.el, this.intervalCheckbox.el, this.intervalCheckbox.label),
+                this.display.el,
+                $("<section>").attr({class: "controllers"}).append(this.startButton.el, this.stopButton.el),
+                $("<section>").attr({class: "sounds"}).append(this.beepAudio.el)
+            );
+            return this;
+        },
+        started: function () {
+            this.startButton.started();
+            this.stopButton.started();
+        },
+        ticked: function (elapsedTime, length) {
+            var time2Text = new TimeToText();
+            var timeText = time2Text.make(elapsedTime, length);
+            this.display.ticked(timeText);
+            this.title.ticked(timeText);
+        },
+        cleared: function () {
+            this.startButton.cleared();
+            this.stopButton.cleared();
+            this.display.cleared();
+            this.title.cleared();
+        },
+        ended: function () {
+            this.beepAudio.ended();
+            this.intervalCheckbox.ended();
+        }
+    });
+
+})(window.dflo);
